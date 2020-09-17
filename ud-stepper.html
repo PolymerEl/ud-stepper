@@ -32,6 +32,42 @@
       static get is() {
         return 'ud-stepper-button';
       }
+
+      static get properties() {
+        return {
+          _disabled: {
+            type: Boolean,
+            observer: '_observeDisabled'
+          },
+
+          _checked: {
+            type: Boolean,
+            observer: '_observeChecked'
+          },
+
+          _invalid: {
+            type: Boolean,
+            observer: '_observeInvalid'
+          }
+        }
+      }
+
+      _observeDisabled(value) {
+        this._observeAria(value, 'disabled')
+      }
+      _observeChecked(value) {
+        this._observeAria(value, 'checked')
+      }
+      _observeInvalid(value) {
+        this._observeAria(value, 'invalid')
+      }
+      _observeAria(value, name) {
+        if (value) {
+          this.setAttribute('aria-' + name, '');
+          return 
+        }
+        this.removeAttribute('aria-' + name);
+      }
     }
     customElements.define(UdStepperButton.is, UdStepperButton);
   })();
@@ -208,7 +244,7 @@
       align-items: stretch;
     }
 
-    :host([vertical]) [selected] .label {
+    :host([vertical]) [aria-selected] .label {
       background: var(--ud-stepper-header-background, #dedede);
       @apply --paper-font-body2;
       @apply --ud-stepper-header-selected;
@@ -265,7 +301,7 @@
       height: 0px;
     }
 
-    :host([vertical][animate]) [selected] .step-container {
+    :host([vertical][animate]) [aria-selected] .step-container {
       display: flex;
       height: fit-content;
     }
@@ -285,9 +321,9 @@
     }
 
     </style>
-    <div class="header-container" role="tablist">
+    <div class="header-container" part="header-container" role="tablist">
       <template is="dom-repeat" items="[[_steps]]" mutable-data>
-        <ud-stepper-button class="header selectable" role="tab" aria-checked$="[[item.completed]]" aria-disabled$="[[item.disabled]]" aria-invalid$="[[item.error]]">
+        <ud-stepper-button class="header selectable" role="tab" _checked="[[item.completed]]" _disabled="[[item.disabled]]" _invalid="[[item.error]]">
           <div class="label">
             <div class="label-circle">
               <template is="dom-if" if="[[item._currentIcon]]">
@@ -467,7 +503,9 @@
         super.connectedCallback();
         this.addEventListener('step-action', evt => this._handleStepAction(evt));
         this.addEventListener('step-error', evt => this.notifyPath('_steps'));
-        // this.addEventListener('iron-activate', evt => this._handleStepActivate(evt));
+        
+        // Note(cg): role `tablis` otherwise inherit role `menubar`, wich cannot have `tab` child roles (ud-step).
+        this.setAttribute('role', 'widget'); 
 
         this._templateObserver = new Polymer.FlattenedNodesObserver(this, info => {
           if (info.addedNodes.filter(this._isStep).length > 0 ||
@@ -478,11 +516,10 @@
               this._setHeight(this.sizing, this._maxHeight, this.vertical, this.animate);
               const items = this.shadowRoot.querySelectorAll(this.selectable)
               this._setItems([...items]);
-              if (!this.selected) {
-                this.selected = 0;
-              }
-              // Note(cg): without call to _selectionChanges,  selected step is not marked as selected.
-              this._selectionChanged(this.selected);
+              this.selected = null;
+              // Note(cg): this is to make sure selection it 
+              // trully applied. .
+              setTimeout(()=> {this.selected = 0;}, 100)
             });
 
           }
